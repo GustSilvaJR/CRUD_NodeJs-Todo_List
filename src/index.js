@@ -24,20 +24,28 @@ function checksExistsUserAccount(request, response, next) {
   next();
 }
 
-//UTILIZAR SOME OU FIND PARA IMPEDIR CADASTRO DE USUARIOS REPETIDOS (MESMO USERNAME)
 app.post('/users', (request, response) => {
   const {name, username} = request.body;
   
-  const user = {
-    id: uuidv4(),
-    name,
-    username,
-    todos:[]
+  const existUser = users.some((element) => element.username == username);
+
+  if(!existUser){
+    const user = {
+      id: uuidv4(),
+      name,
+      username,
+      todos:[]
+    }
+
+    users.push(user);
+    response.status(201).json(user);
+  
+  }else{
+    
+    response.status(400).json("User already exists!");
+
   }
 
-  users.push(user);
-
-  response.status(201).json(user);
 });
 
 app.get('/todos', checksExistsUserAccount, (request, response) => {
@@ -65,7 +73,23 @@ app.post('/todos', checksExistsUserAccount, (request, response) => {
 });
 
 app.put('/todos/:id', checksExistsUserAccount, (request, response) => {
-  // Complete aqui
+  const {user} = request;
+  const {id} = request.query;
+  const {title, deadline} = request.body;
+
+
+
+  const toDoObject = user.todos.find((element) => element.id == id);
+  
+  if(!toDoObject){
+    response.status(400).json("To-do is not resgistred");
+  }else{
+    toDoObject.title = title;
+    toDoObject.deadline = deadline;  
+  }
+
+    response.status(200).json(toDoObject);
+
 });
 
 app.patch('/todos/:id/done', checksExistsUserAccount, (request, response) => {
