@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4, validate } = require('uuid');
 
 const app = express();
 
@@ -25,6 +25,7 @@ function checksExistsUserAccount(request, response, next) {
   return next();
 }
 
+//Midleware responsável por validar se um usuário do tipo free nao tenha atingido o nivel maximo de to-dos registrados
 function checksCreateTodosUserAvailability(request, response, next){
   const { user } = request;
 
@@ -35,6 +36,46 @@ function checksCreateTodosUserAvailability(request, response, next){
   }else{
     return response.send(400).json("You reached your limit with a free account")
   }
+}
+
+//Midleware para testar se um to-do existe com base no id passado e validar se o id passado é um uuid válido
+function checksTodoExists(request, response, next){
+  const {id} = request.params;
+  const {user} = request;
+
+  if(validate(id)){
+    
+    const usersTodoExists = user.todos.find(element => element.id == id);
+
+    if(usersTodoExists){
+      request.todo = usersTodoExists;
+
+      return next();  
+    }else{
+      return response.status(401).json("To-do with this Id are not registred") 
+    }
+  }else{
+    return response.status(401).json("Id are not a valid uuid");
+  }
+}
+
+//Midleware para validar se existe um usuario cadastrado com o id passado pela requisição, e caso tenha, retornar o mesmo pelo request como um atributo
+function findUserById(request, response, next){
+  const {id} = request.params; //Quando eu desestruturo eu crio uma variavel com o valor, pegando só o value em especifico. Caso contrario, eu pegaria o atributo chave_valor em forma de objeto: id = (value)
+
+  console.log("Aqui: ", typeof(id));
+
+  const user = users.find((element)=>element.id == id);
+
+  console.log(user);
+
+  if(user){
+    request.userById = user;
+    return next();
+  }else{
+    return response.status(401).json("No user found with this id ")
+  }
+
 }
 
 //Função para criação de um usuário
@@ -62,6 +103,18 @@ app.post('/users', (request, response) => {
 
 });
 
+//Função para retornar um usuário com base no id informado
+app.get('/users/:id', findUserById, (request, response) =>{
+  const {userById} = request;
+
+  return response.status(201).json(userById);
+});
+
+//Função para retornar todos usuários
+app.get('/users', (request, response) =>{
+  response.status(201).send(users);
+})
+
 //Função para retornar os to-dos registrados para um determinado usuário 
 app.get('/todos', checksExistsUserAccount, (request, response) => {
   const {user} = request;
@@ -70,7 +123,7 @@ app.get('/todos', checksExistsUserAccount, (request, response) => {
 });
 
 //Criação de um to-do para um determinado usuário
-app.post('/todos', checksExistsUserAccount, (request, response) => {
+app.post('/todos', checksExistsUserAccount, checksCreateTodosUserAvailability, (request, response) => {
   const {user} = request;
 
   const { title, deadline } = request.body;
@@ -89,21 +142,14 @@ app.post('/todos', checksExistsUserAccount, (request, response) => {
 });
 
 //Alterando um to-do em específico de um usuário determinado
-app.put('/todos/:id', checksExistsUserAccount, (request, response) => {
-  const {user} = request;
-  const {id} = request.params; //Pegando o parametro passado na rota
+app.put('/todos/:id', checksExistsUserAccount, checksTodoExists, (request, response) => {
+  const {todo} = request;
   const {title, deadline} = request.body;
 
-  const toDoObject = user.todos.find((element) => element.id == id);
+  todo.title = title;
+  todo.deadline = deadline;  
 
-  if(!toDoObject){
-    response.status(400).json("To-do is not resgistred");
-  }else{
-    toDoObject.title = title;
-    toDoObject.deadline = deadline;  
-  }
-
-    return response.status(200).json(toDoObject);
+  return response.status(200).json(todo);
 });
 
 //Alterando um campo em específico do to-do, setando o done para true
