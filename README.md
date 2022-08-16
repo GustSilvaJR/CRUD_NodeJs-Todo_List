@@ -1,4 +1,4 @@
-# To-do_list
+# To-do List ✏️
 
 Aplicação feita com NodeJs para criação de um to-do list, permitindo criar, alterar, deletar, e ler a tareda criada.
 
